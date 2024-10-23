@@ -1,0 +1,4 @@
+/home/andmats/mephi/research/data_tables/OLD_pathes.xlsx
+/home/andmats/mephi/research/data_tables/NEW_pathes.xlsx
+/mnt/d/User/'Project CS'/data/данные/SEGMENTED/
+/mnt/d/User/'Project CS'/data/данные/'БД узлы УЗИ'/
