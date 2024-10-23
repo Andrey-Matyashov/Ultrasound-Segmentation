@@ -104,6 +104,7 @@ class TifFolder_difficult(data.Dataset):
             tiff_images_prcd_1 = []
             tiff_masks_prcd_1 = []
 
+            # случайная сильная аугментация
             if (self.mode == 'train') and p_transform <= self.augmentation_prob:
 
                 for image, mask in zip(tiff_images, tiff_masks):
@@ -132,7 +133,7 @@ class TifFolder_difficult(data.Dataset):
                 image = image.unsqueeze(1)
                 mask = mask.unsqueeze(1)
                 tiff_images_prcd.append(Transform(image))
-                tiff_masks_prcd.append(Transform_GT(mask))
+                tiff_masks_prcd.append((Transform_GT(mask > 1)).to(torch.int64))
 
     def __len__(self):
 
