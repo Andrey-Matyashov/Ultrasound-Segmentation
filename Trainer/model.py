@@ -211,6 +211,7 @@ class Deeplabv3Plus(nn.Module):
     '''
     
     def __init__(self, num_classes):
+        
         super(Deeplabv3Plus, self).__init__()
         
         self.backbone = Efficientnet_b7()

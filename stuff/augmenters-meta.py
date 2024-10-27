@@ -1,4 +1,4 @@
-%%writefile /opt/conda/lib/python3.10/site-packages/imgaug/augmenters/meta.py
+#%%writefile /opt/conda/lib/python3.10/site-packages/imgaug/augmenters/meta.py
 # %load /opt/conda/lib/python3.10/site-packages/imgaug/augmenters/meta.py
 """
 Augmenters that don't apply augmentations themselves, but are needed
