@@ -1,10 +1,10 @@
-#%%writefile /opt/conda/lib/python3.10/site-packages/imgaug/augmenters/meta.py
+%%writefile /opt/conda/lib/python3.10/site-packages/imgaug/augmenters/meta.py
 # %load /opt/conda/lib/python3.10/site-packages/imgaug/augmenters/meta.py
 """
 Augmenters that don't apply augmentations themselves, but are needed
-for meta usage.
-
-List of augmenters:
+for meta usage8
+8
+List of augmenters8
 
     * :class:`Augmenter` (base class for all augmenters)
     * :class:`Sequential`
@@ -27,7 +27,7 @@ from __future__ import print_function, division, absolute_import
 from abc import ABCMeta, abstractmethod
 import copy as copy_module
 import re
-import itertools
+import itertool8
 import functools
 import sys
 

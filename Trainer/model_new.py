@@ -47,14 +47,12 @@ class Convolution(nn.Sequential):
         self,
         in_channels, # количество входных каналов
         out_channels, # количество выходных каналов
-        strides,
         kernel_size,
-        bias,
         padding=0,
         dilation=1,
     ):
         super().__init__()
-        self.add_module("conv", nn.Conv3d(in_channels, out_channels, kernel_size, strides, padding, dilation, bias))
+        self.add_module("conv", nn.Conv3d(in_channels, out_channels, kernel_size, 1, padding, dilation))
         self.add_module("adn", ADN(in_channels))
      
         
@@ -103,6 +101,15 @@ class ASSP(nn.Module):
             kernel_size=3,
             padding=24,
             dilation=24
+        
+        )
+        
+        self.conv_30x30 = Convolution(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            padding=30,
+            dilation=30
         )
         
         self.image_pool = nn.Sequential(
@@ -117,7 +124,7 @@ class ASSP(nn.Module):
         )
         
         self.final_conv = Convolution(
-            in_channels=out_channels * 6,
+            in_channels=out_channels * 7,
             out_channels=out_channels,
             kernel_size=1,
             padding=0,
@@ -131,7 +138,8 @@ class ASSP(nn.Module):
         x4 = self.conv_18x18(x)
         x5 = self.conv_24x24(x)
         x6 = self.image_pool(x)
-        x = torch.cat([x1, x2, x3, x4, x5, x6], dim=1)
+        x7 = self.conv_30x30(x)
+        x = torch.cat([x1, x2, x3, x4, x5, x6, x7], dim=1)
         x = self.final_conv(x)
         return x
     
@@ -213,6 +221,8 @@ class Deeplabv3Plus(nn.Module):
             out_channels = num_classes,
             kernel_size = 1
         )
+        
+        
         
     def forward(self, x):
         

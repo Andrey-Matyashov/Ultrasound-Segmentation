@@ -16,102 +16,50 @@ from collections.abc import Sequence
 from torchvision import models
 import torch.nn.functional as F
 
-def get_norm_layer(norm, spatial_dims, channels):
-    
-    '''
-    Возвращает слой батч-нормализации для 3d свёртки.
-    '''
+"""
+input.shape = (BATCH_SIZE, CHANNELS, TIME, HEIGHT, WIDTH)
+"""
 
-    return nn.BatchNorm3d(channels)
+def get_norm_layer(n_channels):
+    return nn.BatchNorm3d(n_channels)
 
-def get_act_layer(act):
-
-    '''
-    Возвращает функцию активации.
-    '''
-
-    return nn.LeakyReLU(0.1)
+def get_act_layer():
+    return nn.LeakyReLU(0, 1)
 
 class ADN(nn.Sequential):
-    
-    '''
-    Обвёртка над слоями нормализация + активация.
-    '''
-
-    def __init__(self,
-        in_channels: int | None = None,
-        act: tuple | str | None = 'RELU',
-        norm: tuple | str | None = None,
-        norm_dim: int | None = None,
-        dropout_dim: int | None = None,
-    ) -> None:
-        super().__init__()
-        op_dict = {'N' : None, 'A' : None}
-        if norm is not None:
-            if norm_dim is None:
-                raise ValueError('norm_dim needs to be specified.')
-            op_dict['N'] = get_norm_layer(norm=norm, spatial_dims=norm_dim, channels=in_channels)
-            
-        if act is not None:
-            op_dict['A'] = get_act_layer(act)
-            
-        self.add_module('N', op_dict['N'])
-        self.add_module('A', op_dict['A'])
-
-class Convolution(nn.Sequential):
-    
     """
-    Constructs a 3d-convolution with normalization, optional dropout, and optional activation layers::
-
-        -- (Conv|ConvTrans) -- (Norm -- Dropout -- Acti) --
-
-    if ``conv_only`` set to ``True``::
-
-        -- (Conv|ConvTrans) --
+    Обвёртка над слоями нормализации + активации.
     """
-    
     def __init__(
-      self,
-        in_channels: int,
-        out_channels: int ,
-        strides: Sequence[int] | int = 1,
-        kernel_size: Sequence[int] | int = 3,
-        norm: tuple | str | None = 'INSTANCE',
-        dropout: tuple  | str | float | None = None,
-        bias: bool = True,
-        conv_only: bool = False,
-        padding: Sequence[int] | int | None = 0,
-        dilation: Sequence[int] | int = 1,
-        output_padding : Sequence[int] | int | None = None,
-    ) -> None:
+        self,
+        in_channels
+    ):
+        """
+        in_channels - количество входных каналов, параметр С
+        """
         super().__init__()
-        conv = nn.Conv3d(
-            in_channels,
-            out_channels,
-            kernel_size = kernel_size,
-            stride = strides,
-            padding = padding,
-            dilation = dilation,
-            bias = bias,
-        )
-        self.add_module('conv', conv)
+        self.add_module("N", get_norm_layer(in_channels))
+        self.add_module("A", get_act_layer())
         
-        if conv_only:
-            return
-        self.add_module('adn',
-                    ADN(
-                        in_channels = out_channels,
-                        act='RELU',
-                        norm = norm,
-                        norm_dim=3,
-                    ))
-
+        
+class Convolution(nn.Sequential):
+    def __init__(
+        self,
+        in_channels, # количество входных каналов
+        out_channels, # количество выходных каналов
+        kernel_size,
+        padding=0,
+        dilation=1,
+    ):
+        super().__init__()
+        self.add_module("conv", nn.Conv3d(in_channels, out_channels, kernel_size, 1, padding, dilation))
+        self.add_module("adn", ADN(out_channels))
+     
+        
 class ASSP(nn.Module):
-    
     """
     Пирамидальная свёртка - encoder DeepLabv3+.
     """
-    
     def __init__(self, in_channels, out_channels):
         
         super(ASSP, self).__init__()
@@ -119,7 +67,7 @@ class ASSP(nn.Module):
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=1,
-            padding=0, 
+            padding=0,
             dilation=1
         )
         
@@ -127,7 +75,7 @@ class ASSP(nn.Module):
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=3,
-            padding=6, 
+            padding=6,
             dilation=6
         )
         
@@ -135,49 +83,56 @@ class ASSP(nn.Module):
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=3,
-            padding=12, 
+            padding=12,
             dilation=12
         )
+        
         self.conv_18x18 = Convolution(
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=3,
-            padding=18, 
+            padding=18,
             dilation=18
         )
+        
+        self.conv_24x24 = Convolution(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            padding=24,
+            dilation=24
+        )
+        
         self.image_pool = nn.Sequential(
             nn.AdaptiveAvgPool3d((None, None, None)),
             Convolution(
-                in_channels = in_channels,
+                in_channels=in_channels,
                 out_channels=out_channels,
-                kernel_size = 1,
-                strides=1,
+                kernel_size=1,
                 padding=0,
                 dilation=1
             )
         )
-      
+        
         self.final_conv = Convolution(
-            in_channels = 5 * out_channels,
-            out_channels = out_channels,
+            in_channels=out_channels * 6,
+            out_channels=out_channels,
             kernel_size=1,
             padding=0,
             dilation=1
         )
         
     def forward(self, x):
-        x_1x1 = self.conv_1x1(x)
-        x_6x6 = self.conv_6x6(x)
-        x_12x12 = self.conv_12x12(x)
-        x_18x18 = self.conv_18x18(x)
-        img_pool_opt = self.image_pool(x)
-        
-        concat = torch.cat(
-            (x_1x1, x_6x6, x_12x12, x_18x18, img_pool_opt),
-            dim=1
-        )
-        x_final_conv = self.final_conv(concat)
-        return x_final_conv
+        x1 = self.conv_1x1(x)
+        x2 = self.conv_6x6(x)
+        x3 = self.conv_12x12(x)
+        x4 = self.conv_18x18(x)
+        x5 = self.conv_24x24(x)
+        x6 = self.image_pool(x)
+        x = torch.cat([x1, x2, x3, x4, x5, x6], dim=1)
+        x = self.final_conv(x)
+        return x
+    
 
 class Efficientnet_b7(nn.Module):
     def __init__(self, output_layer='features'):
@@ -191,15 +146,34 @@ class Efficientnet_b7(nn.Module):
                 self.layer_count += 1
             else:
                 break
-        for i in range(1, len(self.layers)-self.layer_count):
+        for i in range(1, len(self.layers) - self.layer_count):
             self.dummy_var = self.pretrained._modules.pop(self.layers[-i])
         self.net = nn.Sequential(self.pretrained._modules)
         self.pretrained = None
-    
+        
     def forward(self, x):
         with torch.no_grad():
             x = self.net(x)
         return x
+    
+class ResNet101_deeplab(nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+        resnet101 = models.resnet101(pretrained=True)
+        backbone = torch.nn.Sequential(*list(resnet101.children())[:-2])
+        backbone_output = backbone[:-1]
+        self.backbone = backbone_output
+        self.conv = nn.Conv2d(1024, 2048, 1)
+        self.bn = nn.BatchNorm2d(2048)
+        self.act = nn.LeakyReLU()
+    
+    def forward(self, x):
+        with torch.no_grad():   
+            x = self.backbone(x)
+        x = self.conv(x)
+        return self.act(self.bn(x))
+    
 
 class Deeplabv3Plus(nn.Module):
     
@@ -207,16 +181,15 @@ class Deeplabv3Plus(nn.Module):
     input = [1, C, T, H, W] // first - 1 is equal that batch_size=1
     
     processing:
-    - backbone: [1, C, H , W] -> (1, 2560, 16, 16)  
+    - backbone: [1, C, H , W] -> (1, 2048, 32, 32)  
     '''
     
     def __init__(self, num_classes):
-        
         super(Deeplabv3Plus, self).__init__()
         
-        self.backbone = Efficientnet_b7()
+        self.backbone = ResNet101_deeplab()
         
-        self.assp = ASSP(in_channels = 2560, out_channels=256)
+        self.assp = ASSP(in_channels = 2048, out_channels=256)
         
         self.conv1x1 = Convolution(
             in_channels = 256,
@@ -250,7 +223,6 @@ class Deeplabv3Plus(nn.Module):
                 x_backbone = cur_img_backbone
             else:
                 x_backbone = torch.cat([x_backbone, cur_img_backbone], dim=2)
-        
         # assp processing 
         x_assp = self.assp(x_backbone)
         
