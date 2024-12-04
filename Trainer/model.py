@@ -120,7 +120,7 @@ class ASSP(nn.Module):
             kernel_size=1,
             padding=0,
             dilation=1
-        )
+        ) 
         
     def forward(self, x):
         x1 = self.conv_1x1(x)
@@ -148,9 +148,13 @@ class Efficientnet_b7(nn.Module):
                 break
         for i in range(1, len(self.layers) - self.layer_count):
             self.dummy_var = self.pretrained._modules.pop(self.layers[-i])
+        # 24x24 convolution
         self.net = nn.Sequential(self.pretrained._modules)
+        # Image pool
         self.pretrained = None
+        # Concatenate the outputs
         
+        # Final convolution
     def forward(self, x):
         with torch.no_grad():
             x = self.net(x)

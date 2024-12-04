@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ConvBlock2D import Conv2D_block as ConvBlock2D
+from experiments.ducknet.ConvBlock2D import Conv2D_block as ConvBlock2D
 
 class DuckNet(nn.Module):
     
